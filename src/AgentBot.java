@@ -77,32 +77,36 @@ public class AgentBot extends SingleAgent{
             sendExit(true,GPS);         //  Falta en el diagrama, le diríamos al GPS que se cierre
             
             while(!exit){
-                if(receiveBattery()<=2){
-                    outbox.setReceiver(SERVIDOR);       //  Le mandamos al servidor que haga refuel
+                //  RECIBIR JSON SERVIDOR Y PROCESARLO
+                if(batery<=10){
+                    outbox.setReceiver("Denebola");       //  Le mandamos al servidor que haga refuel
+                    // JSON PARA SETCONTENT
                     outbox.setContent("recarga");
                     this.send(outbox);
                     //ESPERAR RESPUESTA SERVIDOR
                 }
                 
                 receiveRadar();
+                if(array[12] == 2) solution = true;
+                else solution = false;
                 
                 if(solution){
                     sendExit(true,Scanner);
-                    logout();
+                    exit = true;
                 }else{
                     sendExit(false,Scanner);
                     receiveScanner();
                     heuristic = botHeuristic();
-                }
             
-                if(heuristic == "NO"){
-                    sendExit(true,Scanner);
-                    logout();
-                }else{
-                    mandarServidorMover = heuristic;
-                    exit = esperarRespuestaServidor();
-                    sendExit(exit,Scanner);
-                }   
+                    if(heuristic == "NO"){
+                        sendExit(true,Scanner);
+                        exit = true;
+                    }else{
+                        mandarServidorMover = heuristic;        // COMUNICACIÓN SERVIDOR
+                        exit = esperarRespuestaServidor();      // ESPERAR Y PROCESAR RESPUESTA SERVIDOR
+                        sendExit(exit,Scanner);                 // DECIRLE A SCANNER SI APAGARSE
+                    }
+                }
             }
         }
     }
