@@ -1,4 +1,7 @@
 
+import com.eclipsesource.json.Json;
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
 import es.upv.dsic.gti_ia.core.ACLMessage;
 import es.upv.dsic.gti_ia.core.AgentID;
 import es.upv.dsic.gti_ia.core.SingleAgent;
@@ -8,17 +11,26 @@ import java.util.logging.Logger;
 
 public class AgentGPS extends SingleAgent{
     
-    private boolean exit, datosrecibidosservidor;
-    private ACLMessage inbox,outbux;
+    private boolean exit;
+    private ACLMessage inbox, outbox;
+    private boolean dataReceived;
+    private String sendData;
     
     public AgentGPS(AgentID aid) throws Exception {
         super(aid);
     }
     
-    @Override 
+    public void processData(JsonObject data){
+        JsonValue coordenadas = data.get("gps");
+        sendData = coordenadas.toString();
+    }
+    
+   @Override 
     public void init(){
         exit = false;
-        datosrecibidosservidor = false;
+        outbox.setSender(this.getAid());
+        outbox.setReceiver(new AgentID("Bot"));
+        dataReceived = false;
     }
     
     @Override 
@@ -29,19 +41,24 @@ public class AgentGPS extends SingleAgent{
                 inbox = this.receiveACLMessage();
                 
                 if(inbox.getSender().getLocalName().equals("Bot")){
-                    if(inbox.getContent().equals("ERROR"))
+                    if(inbox.getContent().equals("ERROR")){
                         exit = true;    
-                    else if (datosrecibidosservidor){
-                        //enviar respuesta
-                        datosrecibidosservidor = false;
+                    }else if (dataReceived){
+                        outbox.setContent(sendData);
+                        this.send(outbox);
+                        dataReceived = false;
+                    }else if(!dataReceived){                //  En caso de que el agente Bot pida 
+                        inbox = this.receiveACLMessage();   //  datos antes de que lleguen al agente GPS. Puede bloquear
+                        processData(Json.parse(inbox.getContent()).asObject());
+                        outbox.setContent(sendData);
+                        this.send(outbox);
                     }
                 }else{
-                    processdata();
-                    datosrecibidosservidor = true;
+                    processData(Json.parse(inbox.getContent()).asObject());
+                    dataReceived = true;
                 }
             }
         } catch (InterruptedException ex) {
-            Logger.getLogger(AgentBot.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     
