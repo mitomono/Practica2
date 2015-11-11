@@ -1,8 +1,14 @@
 
+import com.eclipsesource.json.Json;
+import com.eclipsesource.json.JsonArray;
+import com.eclipsesource.json.JsonObject;
 import es.upv.dsic.gti_ia.core.ACLMessage;
 import es.upv.dsic.gti_ia.core.AgentID;
 import es.upv.dsic.gti_ia.core.SingleAgent;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /*
 *   Clase AgentBot que se encargará de procesar los datos y
@@ -15,6 +21,9 @@ public class AgentBot extends SingleAgent{
     private boolean exit;
     private boolean solution;
     private String heuristic;
+    private String key;
+    private int battery;
+    private ArrayList<Integer> radar;
     private ACLMessage inbox, outbox; // No sé si hace falta, lo he copiado de la práctica
     
     public AgentBot(AgentID aid) throws Exception {
@@ -55,6 +64,42 @@ public class AgentBot extends SingleAgent{
         return "hola";
     }
     
+    public void processData(JsonObject data){
+        radar.clear();
+        battery = data.get("battery").asInt();
+        JsonArray radarAux = data.get("radar").asArray();
+        for(int i=0;i<25;i++)
+            radar.add(radarAux.get(i).asInt());
+    }
+    
+    public boolean connectServer(){
+        JsonObject connect = Json.object();
+        connect.add("command","login");
+        connect.add("world","map1");
+        connect.add("radar","bot");
+        connect.add("gps","gps");
+        connect.add("scanner","scanner");
+        
+        String connectS = connect.toString();
+        outbox.setReceiver(new AgentID("Denebola"));
+        outbox.setContent(connectS);
+
+        this.send(outbox);
+        
+        try {
+            inbox = this.receiveACLMessage();
+        } catch (InterruptedException ex) {
+            Logger.getLogger(AgentBot.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+        JsonObject answer = Json.parse(inbox.getContent()).asObject();
+        key = answer.get("result").asString();
+        
+        if(key.contains("BAD_"))
+            return false;
+        else return true;
+    }
+    
     @Override 
     public void init(){
         worldMatrix = new int[500][500];
@@ -66,45 +111,60 @@ public class AgentBot extends SingleAgent{
     
     @Override 
     public void execute(){
-        if(error_conexion){
-            sendExit(true,GPS);         //  Mandamos señal de finalización al GPS
-            sendExit(true,Scanner);     //  Mandamos señal de finalización al Scanner 
+        
+        if(!connectServer()){
+            sendExit(true,new AgentID("GPS"));         //  Mandamos señal de finalización al GPS
+            sendExit(true,new AgentID("Scanner"));     //  Mandamos señal de finalización al Scanner 
         }else{
-            sendExit(false,GPS);         // Mandamos señal de continuación al GPS
-            sendExit(false,Scanner);     // Mandamos señal de continuación al Scanner
+            sendExit(false,new AgentID("GPS"));         // Mandamos señal de continuación al GPS
+            sendExit(false,new AgentID("Scanner"));     // Mandamos señal de continuación al Scanner
             
-            receiveGPS();
-            sendExit(true,GPS);         //  Falta en el diagrama, le diríamos al GPS que se cierre
+            
             
             while(!exit){
-                //  RECIBIR JSON SERVIDOR Y PROCESARLO
-                if(batery<=10){
-                    outbox.setReceiver("Denebola");       //  Le mandamos al servidor que haga refuel
+                
+                try {
+                    inbox = this.receiveACLMessage();
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(AgentBot.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            
+                processData(Json.parse(inbox.getContent()).asObject());
+           
+            
+            
+                if(battery<=5){
+                    outbox.setReceiver(new AgentID("Denebola"));       //  Le mandamos al servidor que haga refuel
                     // JSON PARA SETCONTENT
-                    outbox.setContent("recarga");
+                    outbox.setContent("refuel");
                     this.send(outbox);
                     //ESPERAR RESPUESTA SERVIDOR
                 }
                 
-                receiveRadar();
-                if(array[12] == 2) solution = true;
+                if(radar.get(12) == 2) solution = true;
                 else solution = false;
                 
                 if(solution){
-                    sendExit(true,Scanner);
+                    sendExit(true,new AgentID("GPS"));
+                    sendExit(true,new AgentID("Scanner"));
                     exit = true;
                 }else{
-                    sendExit(false,Scanner);
+                    sendExit(false,new AgentID("GPS"));
+                    receiveGPS();
+                    sendExit(false,new AgentID("Scanner"));
+                    
                     receiveScanner();
                     heuristic = botHeuristic();
             
                     if(heuristic == "NO"){
-                        sendExit(true,Scanner);
+                        sendExit(true,new AgentID("GPS"));
+                        sendExit(true,new AgentID("Scanner"));
                         exit = true;
                     }else{
                         mandarServidorMover = heuristic;        // COMUNICACIÓN SERVIDOR
                         exit = esperarRespuestaServidor();      // ESPERAR Y PROCESAR RESPUESTA SERVIDOR
-                        sendExit(exit,Scanner);                 // DECIRLE A SCANNER SI APAGARSE
+                        sendExit(exit,new AgentID("GPS"));
+                        sendExit(exit,new AgentID("Scanner"));
                     }
                 }
             }
