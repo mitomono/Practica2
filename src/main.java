@@ -15,9 +15,9 @@ public class main {
         AgentsConnection.connect("isg2.ugr.es", 6000, "Denebola", "Leon", "Russo", false);
         
         //  Inicialización de los agentes
-        bot = new AgentBot(new AgentID("Bot"));
-        scanner=new AgentScanner(new AgentID("Scanner"));
-        gps = new AgentGPS(new AgentID("GPS"));
+        bot = new AgentBot(new AgentID("bot"));
+        scanner=new AgentScanner(new AgentID("scanner"));
+        gps = new AgentGPS(new AgentID("gps"));
         
         //  Comienzo de la ejecucion de los agentes
         scanner.start();

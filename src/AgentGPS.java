@@ -29,7 +29,7 @@ public class AgentGPS extends SingleAgent{
     public void init(){
         exit = false;
         outbox.setSender(this.getAid());
-        outbox.setReceiver(new AgentID("Bot"));
+        outbox.setReceiver(new AgentID("bot"));
         dataReceived = false;
     }
     
@@ -39,8 +39,8 @@ public class AgentGPS extends SingleAgent{
         try{
             while(!exit){
                 inbox = this.receiveACLMessage();
-                
-                if(inbox.getSender().getLocalName().equals("Bot")){
+                System.out.println(inbox.getContent());
+                if(inbox.getSender().getLocalName().equals("bot")){
                     if(inbox.getContent().equals("ERROR")){
                         exit = true;    
                     }else if (dataReceived){
