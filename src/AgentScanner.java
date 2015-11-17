@@ -14,14 +14,15 @@ public class AgentScanner extends SingleAgent{
     private boolean exit;
     private ACLMessage inbox, outbox;
     private boolean dataReceived;
-    private String sendData;
+    private String sendData = new String();
     
     public AgentScanner(AgentID aid) throws Exception {
         super(aid);
+        outbox=new ACLMessage();
     }
     
     public void processData(JsonObject data){
-        JsonArray aux = data.get("Scanner").asArray();
+        JsonArray aux = data.get("scanner").asArray();
         sendData = aux.toString();
     }
     
@@ -39,7 +40,7 @@ public class AgentScanner extends SingleAgent{
         try{
             while(!exit){
                 inbox = this.receiveACLMessage();
-                
+                 System.out.println(inbox.getContent());
                 if(inbox.getSender().getLocalName().equals("bot")){
                     if(inbox.getContent().equals("ERROR")){
                         exit = true;    
