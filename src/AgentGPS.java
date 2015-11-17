@@ -14,10 +14,11 @@ public class AgentGPS extends SingleAgent{
     private boolean exit;
     private ACLMessage inbox, outbox;
     private boolean dataReceived;
-    private String sendData;
+    private String sendData= new String();
     
     public AgentGPS(AgentID aid) throws Exception {
         super(aid);
+        outbox = new ACLMessage();
     }
     
     public void processData(JsonObject data){

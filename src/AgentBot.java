@@ -87,6 +87,7 @@ public class AgentBot extends SingleAgent {
     }
 
     public void receiveGPS() {
+        
         outbox.setReceiver(IDgps);
         outbox.setContent("Send");
         this.send(outbox);
@@ -120,14 +121,22 @@ public class AgentBot extends SingleAgent {
     }
 
     public void processData(JsonObject data) {
-        if (!radar.isEmpty()) {
-            radar.clear();
-        }
-        //  System.out.println(data.toString(WriterConfig.PRETTY_PRINT));
-        battery = data.get("battery").asInt();
-        JsonArray radarAux = data.get("radar").asArray();
-        for (int i = 0; i < 25; i++) {
-            radar.add(radarAux.get(i).asInt());
+        try {
+            if (!radar.isEmpty()) {
+                radar.clear();
+            }
+            //  System.out.println(data.toString(WriterConfig.PRETTY_PRINT));
+            
+            JsonArray radarAux = data.get("radar").asArray();
+            for (int i = 0; i < 25; i++) {
+                radar.add(radarAux.get(i).asInt());
+            }
+            inbox=this.receiveACLMessage();
+            data = Json.parse(inbox.getContent()).asObject();
+            System.out.println(data.toString());
+            battery = (int)data.get("battery").asDouble();
+        } catch (InterruptedException ex) {
+            Logger.getLogger(AgentBot.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -204,8 +213,8 @@ public class AgentBot extends SingleAgent {
                     }
 
                     if (solution) {
-                        sendExit(true, IDgps);         //  Mandamos señal de finalización al GPS
-                        sendExit(true, IDscanner);
+                        sendExit(solution, IDgps);         //  Mandamos señal de finalización al GPS
+                        sendExit(solution, IDscanner);
                         exit = true;
                     } else {
                         //sendExit(false,new AgentID("GPS"));
