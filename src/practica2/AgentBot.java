@@ -1,8 +1,8 @@
+package practica2;
 
 import com.eclipsesource.json.Json;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
-import com.eclipsesource.json.WriterConfig;
 import es.upv.dsic.gti_ia.core.ACLMessage;
 import es.upv.dsic.gti_ia.core.AgentID;
 import es.upv.dsic.gti_ia.core.SingleAgent;
@@ -31,13 +31,13 @@ public class AgentBot extends SingleAgent {
     private int[][] worldMatrix;
     private String heuristic;
     private boolean solution;
+    // variables para mensages
     AgentID IDscanner;
     AgentID IDgps;
     AgentID IDdenebola;
 
     public AgentBot(AgentID aid) throws Exception {
         super(aid);
-        //   inbox = new ACLMessage();
         outbox = new ACLMessage();
         radar = new ArrayList<>();
         scan = new ArrayList<>();
@@ -45,99 +45,14 @@ public class AgentBot extends SingleAgent {
         IDscanner = new AgentID("scanner");
         IDgps = new AgentID("gps");
         IDdenebola = new AgentID("Denebola");
+        worldMatrix = new int[500][500];
+        exit = false;
+        solution = true;
     }
 
-    public void sendExit(boolean e, AgentID receiver) {
-        outbox.setReceiver(receiver);
-        if (e) {
-            outbox.setContent("ERROR");
-        } else {
-            outbox.setContent("OK");
-        }
-        this.send(outbox);
-    }
-
-    public String botHeuristic() {
-        return "moveSW";
-    }
-
-    public boolean resultServer() {
-        try {
-            inbox = this.receiveACLMessage();
-        } catch (InterruptedException ex) {
-        }
-
-        JsonObject resultSon = Json.parse(inbox.getContent()).asObject();
-        String result = resultSon.get("result").asString();
-
-        if (result.equals("CRASHED") || result.contains("BAD_")) {
-            return true;        //  Devuelve true porque exit = resultServer()
-        } else {
-            return false;      //  Por lo que exit = true cuando haya error.
-        }
-    }
-
-    public void sendOrder(String send) {
-        outbox.setReceiver(IDdenebola);
-        JsonObject order = Json.object();
-        order.add("command", send);
-        order.add("key", key);
-        outbox.setContent(order.toString());
-        this.send(outbox);
-    }
-
-    public void receiveGPS() {
-        
-        outbox.setReceiver(IDgps);
-        outbox.setContent("Send");
-        this.send(outbox);
-
-        try {
-            inbox = this.receiveACLMessage();
-        } catch (InterruptedException ex) {
-        }
-        JsonObject aux = Json.parse(inbox.getContent()).asObject();
-        coorX = aux.get("x").asInt();       //  Tal vez haya que coger gps primero??? y luego x??
-        coorY = aux.get("y").asInt();
-
-    }
-
-    public void receiveScanner() {
-        outbox.setReceiver(IDscanner);
-        outbox.setContent("Send");
-        this.send(outbox);
-
-        try {
-            inbox = this.receiveACLMessage();
-        } catch (InterruptedException ex) {
-        }
-        String auxContent = inbox.getContent();
-        JsonArray auxArray = Json.parse(auxContent).asArray();
-
-        scan.clear();
-        for (int i = 0; i < 25; i++) {
-            scan.add(auxArray.get(i).asFloat());
-        }
-    }
-
-    public void processData(JsonObject data) {
-        try {
-            if (!radar.isEmpty()) {
-                radar.clear();
-            }
-            //  System.out.println(data.toString(WriterConfig.PRETTY_PRINT));
-            
-            JsonArray radarAux = data.get("radar").asArray();
-            for (int i = 0; i < 25; i++) {
-                radar.add(radarAux.get(i).asInt());
-            }
-            inbox=this.receiveACLMessage();
-            data = Json.parse(inbox.getContent()).asObject();
-            System.out.println(data.toString());
-            battery = (int)data.get("battery").asDouble();
-        } catch (InterruptedException ex) {
-            Logger.getLogger(AgentBot.class.getName()).log(Level.SEVERE, null, ex);
-        }
+    @Override
+    public void init() {
+        outbox.setSender(this.getAid());
     }
 
     public boolean connectServer() {
@@ -148,7 +63,6 @@ public class AgentBot extends SingleAgent {
         connect.add("battery", "bot");
         connect.add("gps", "gps");
         connect.add("scanner", "scanner");
-        // System.out.println(connect.toString(WriterConfig.MINIMAL));
         String connectS = connect.toString();
         outbox.setReceiver(IDdenebola);
         outbox.setContent(connectS);
@@ -171,29 +85,13 @@ public class AgentBot extends SingleAgent {
     }
 
     @Override
-    public void init() {
-        worldMatrix = new int[500][500];
-        //path = new HashMap();
-        outbox.setSender(this.getAid());
-        exit = false;
-        solution = true;
-
-    }
-
-    @Override
     public void execute() {
-
         if (!connectServer()) {
             sendExit(true, IDgps);         //  Mandamos señal de finalización al GPS
             sendExit(true, IDscanner);     //  Mandamos señal de finalización al Scanner 
         } else {
-            //sendExit(false,new AgentID("GPS"));         // Mandamos señal de continuación al GPS
-            //sendExit(false,new AgentID("Scanner"));     // Mandamos señal de continuación al Scanner
-
             while (!exit) {
-
                 try {
-
                     inbox = this.receiveACLMessage();
                 } catch (InterruptedException ex) {
                 }
@@ -217,9 +115,7 @@ public class AgentBot extends SingleAgent {
                         sendExit(solution, IDscanner);
                         exit = true;
                     } else {
-                        //sendExit(false,new AgentID("GPS"));
                         receiveGPS();
-                        //sendExit(false,new AgentID("Scanner"));
                         receiveScanner();
                         heuristic = botHeuristic();
 
@@ -239,6 +135,99 @@ public class AgentBot extends SingleAgent {
                 }
             }
         }
+    }
+
+    public void receiveGPS() {
+
+        outbox.setReceiver(IDgps);
+        outbox.setContent("Send");
+        this.send(outbox);
+
+        try {
+            inbox = this.receiveACLMessage();
+        } catch (InterruptedException ex) {
+        }
+        JsonObject aux = Json.parse(inbox.getContent()).asObject();
+        coorX = aux.get("x").asInt();
+        coorY = aux.get("y").asInt();
+    }
+
+    public void receiveScanner() {
+        outbox.setReceiver(IDscanner);
+        outbox.setContent("Send");
+        this.send(outbox);
+
+        try {
+            inbox = this.receiveACLMessage();
+        } catch (InterruptedException ex) {}
+        
+        String auxContent = inbox.getContent();
+        JsonArray auxArray = Json.parse(auxContent).asArray();
+
+        scan.clear();
+        for (int i = 0; i < 25; i++) {
+            scan.add(auxArray.get(i).asFloat());
+        }
+    }
+
+    public void sendOrder(String send) {
+        outbox.setReceiver(IDdenebola);
+        JsonObject order = Json.object();
+        order.add("command", send);
+        order.add("key", key);
+        outbox.setContent(order.toString());
+        this.send(outbox);
+    }
+
+    public boolean resultServer() {
+        try {
+            inbox = this.receiveACLMessage();
+        } catch (InterruptedException ex) {}
+
+        JsonObject resultSon = Json.parse(inbox.getContent()).asObject();
+        String result = resultSon.get("result").asString();
+
+        if (result.equals("CRASHED") || result.contains("BAD_")) {
+            return true;        //  Devuelve true porque exit = resultServer()
+        } else {
+            return false;      //  Por lo que exit = true cuando haya error.
+        }
+    }
+
+    public String botHeuristic() {
+        return "moveSW";
+    }
+
+    public void processData(JsonObject data) {
+        try {
+            if (!radar.isEmpty()) {
+                radar.clear();
+            }
+
+            JsonArray radarAux = data.get("radar").asArray();
+            
+            for (int i = 0; i < 25; i++) {
+                radar.add(radarAux.get(i).asInt());
+            }
+            
+            inbox = this.receiveACLMessage();
+            data = Json.parse(inbox.getContent()).asObject();
+            System.out.println(data.toString());
+            battery = (int) data.get("battery").asDouble();
+            
+        } catch (InterruptedException ex) {
+            Logger.getLogger(AgentBot.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void sendExit(boolean e, AgentID receiver) {
+        outbox.setReceiver(receiver);
+        if (e) {
+            outbox.setContent("ERROR");
+        } else {
+            outbox.setContent("OK");
+        }
+        this.send(outbox);
     }
 
     @Override
