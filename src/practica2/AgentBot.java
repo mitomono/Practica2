@@ -3,6 +3,7 @@ package practica2;
 import com.eclipsesource.json.Json;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
+import edu.emory.mathcs.backport.java.util.Collections;
 import es.upv.dsic.gti_ia.core.ACLMessage;
 import es.upv.dsic.gti_ia.core.AgentID;
 import es.upv.dsic.gti_ia.core.SingleAgent;
@@ -10,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.util.Pair;
 
 /*
 *   Clase AgentBot que se encargará de procesar los datos y
@@ -27,7 +29,7 @@ public class AgentBot extends SingleAgent {
     private ACLMessage inbox, outbox;
     private boolean exit;
     //  Variables para la heurística
-    private HashMap path;
+    private HashMap<Pair<Integer,Integer>,Integer> path;
     private int[][] worldMatrix;
     private String heuristic;
     private boolean solution;
@@ -41,7 +43,7 @@ public class AgentBot extends SingleAgent {
         outbox = new ACLMessage();
         radar = new ArrayList<>();
         scan = new ArrayList<>();
-        path = new HashMap();
+        path = new HashMap<>();
         IDscanner = new AgentID("scanner");
         IDgps = new AgentID("gps");
         IDdenebola = new AgentID("Denebola");
@@ -58,7 +60,7 @@ public class AgentBot extends SingleAgent {
     public boolean connectServer() {
         JsonObject connect = Json.object();
         connect.add("command", "login");
-        connect.add("world", "map1");
+        connect.add("world", "map10");
         connect.add("radar", "bot");
         connect.add("battery", "bot");
         connect.add("gps", "gps");
@@ -101,6 +103,12 @@ public class AgentBot extends SingleAgent {
 
                 if (battery <= 4) {
                     sendOrder("refuel");    //  Le mandamos al servidor que haga refuel
+                    try {
+                        inbox = this.receiveACLMessage();
+                        System.out.println(" repostaje = "+inbox.getContent());
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(AgentBot.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 } else {                                          //  Hablando con el profesor nos ha explicado que si se hace
                     //  refuel, el servidor vuelve a mandar los datos, por lo que
                     if (radar.get(12) == 2) {
@@ -119,7 +127,8 @@ public class AgentBot extends SingleAgent {
                         receiveScanner();
                         heuristic = botHeuristic();
 
-                        if (heuristic == "NO") {
+                        if (heuristic.equals("NO")) {
+                            System.out.println("FALLO DE HEURISTICA");
                             sendExit(true, IDgps);         //  Mandamos señal de finalización al GPS
                             sendExit(true, IDscanner);
                             exit = true;
@@ -171,6 +180,8 @@ public class AgentBot extends SingleAgent {
     }
 
     public void sendOrder(String send) {
+        Pair<Integer,Integer> k = new Pair(this.coorX,this.coorY);
+        this.path.putIfAbsent(k, 0);
         outbox.setReceiver(IDdenebola);
         JsonObject order = Json.object();
         order.add("command", send);
@@ -188,14 +199,161 @@ public class AgentBot extends SingleAgent {
         String result = resultSon.get("result").asString();
 
         if (result.equals("CRASHED") || result.contains("BAD_")) {
+            if(result.equals("CRASHED"))
+                System.out.println("TE ESTRELLASTEEEEEE");
             return true;        //  Devuelve true porque exit = resultServer()
         } else {
             return false;      //  Por lo que exit = true cuando haya error.
         }
     }
+    
+    public int min(ArrayList<Float>m,ArrayList<Integer>m1){
+        Float min = (Float)Collections.max(m);
+        int pos=-1;
+        for (int i =0; i < m.size(); i++){
+            if(m.get(i)< min && m1.get(i)!= 1){
+                pos = i;
+                min = m.get(i);
+            }
+        }
+
+        return pos;
+
+    }
 
     public String botHeuristic() {
-        return "moveSW";
+        int pos;
+        String R = "NO";
+        ArrayList<Float> auxS=new ArrayList<>();
+        ArrayList<Integer> auxR=new ArrayList<>();
+        auxS.add(scan.get(6));
+        auxS.add(scan.get(7));
+        auxS.add(scan.get(8));
+        auxS.add(scan.get(11));
+        auxS.add(scan.get(13));
+        auxS.add(scan.get(16));
+        auxS.add(scan.get(17));
+        auxS.add(scan.get(18));
+        
+        auxR.add(this.radar.get(6));
+        auxR.add(radar.get(7));
+        auxR.add(radar.get(8));
+        auxR.add(radar.get(11));
+        auxR.add(radar.get(13));
+        auxR.add(radar.get(16));
+        auxR.add(radar.get(17));
+        auxR.add(radar.get(18));
+        
+        pos = this.min(auxS,auxR);
+   /*
+        Float min = (Float)Collections.max(aux);
+        int pos=0;
+        for (int i =0; i < aux.size(); i++){
+            if(aux.get(i)< min && this.radar.get(i)!= 1){
+                pos = i;
+                min = aux.get(i);
+            }
+        }
+        */
+   boolean salir = false;
+   while(!salir){
+        switch(pos){
+            case 0:
+                //R="moveNW";
+                if(!this.path.containsKey(new Pair(coorX-1,coorY-1))){
+                    R="moveNW";
+                    salir = true;
+                }
+                else{
+                    auxS.set(0, (Float)Collections.max(this.scan));
+                    pos=this.min(auxS,auxR);
+                }
+                break;
+            case 1:
+                //R="moveN";
+                if(!this.path.containsKey(new Pair(coorX,coorY-1))){
+                    R="moveN";
+                    salir = true;
+                }
+                else{
+                    auxS.set(1, (Float)Collections.max(this.scan));
+                    pos=this.min(auxS,auxR);
+                }
+                break;
+            case 2:
+                //R="moveNE";
+                 if(!this.path.containsKey(new Pair(coorX+1,coorY-1))){
+                    R="moveNE";
+                    salir = true;
+                }
+                else{
+                    auxS.set(2, (Float)Collections.max(this.scan));
+                    pos=this.min(auxS,auxR);
+                }
+                break;
+            case 3:
+                //R="moveW";
+                 if(!this.path.containsKey(new Pair(coorX-1,coorY))){
+                    R="moveW";
+                    salir = true;
+                }
+                else{
+                    auxS.set(3, (Float)Collections.max(this.scan));
+                    pos=this.min(auxS,auxR);
+                }
+                break;
+            case 4:
+                //R="moveE";
+                 if(!this.path.containsKey(new Pair(coorX+1,coorY))){
+                    R="moveE";
+                    salir = true;
+                }
+                else{
+                    auxS.set(4, (Float)Collections.max(this.scan));
+                    pos=this.min(auxS,auxR);
+                }
+                break;
+            case 5:
+                //R="moveSW";
+                 if(!this.path.containsKey(new Pair(coorX-1,coorY+1))){
+                    R="moveSW";
+                    salir = true;
+                }
+                else{
+                    auxS.set(5, (Float)Collections.max(this.scan));
+                    pos=this.min(auxS,auxR);
+                }
+                break;
+            case 6:
+                //R="moveS";
+                 if(!this.path.containsKey(new Pair(coorX,coorY+1))){
+                    R="moveS";
+                    salir = true;
+                }
+                else{
+                    auxS.set(6, (Float)Collections.max(this.scan));
+                    pos=this.min(auxS,auxR);
+                }
+                break;
+            case 7:
+                //R="moveSE";
+                 if(!this.path.containsKey(new Pair(coorX+1,coorY-1))){
+                    R="moveSE";
+                    salir = true;
+                }
+                else{
+                    auxS.set(7, (Float)Collections.max(this.scan));
+                    pos=this.min(auxS,auxR);
+                }
+                break;
+            default:
+                R="NO";
+                salir=true;
+        }
+   }
+        //return "moveSW";
+        System.out.println(R);
+        return R;
     }
 
     public void processData(JsonObject data) {
