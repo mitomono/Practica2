@@ -333,7 +333,7 @@ public class AgentBot extends SingleAgent {
      * @author      Adrián Lara Roldán
      *
      * @param rad  Casillas adyacentes al <code>bot</code>.
-     * @param scan   Casillas adyacentes con el gradiente.
+     * @param scan   Casillas adyacentes al <code>bot</code> con el gradiente.
      *
      */
     public int min(ArrayList<Float> scan, ArrayList<Integer> rad) {
