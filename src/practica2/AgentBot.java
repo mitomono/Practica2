@@ -542,7 +542,7 @@ public class AgentBot extends SingleAgent {
             n = aux.get(i);
             if (path.containsKey(n)) {
                 M = path.get(n);
-                if (M *auxS.get(i)< min && M < 3) {
+                if (M / auxS.get(i)< min && M < 10) {
                     min = M;
                     dir = i;
                 }
